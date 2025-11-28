@@ -105,6 +105,22 @@ function getZodiacSign(dateString) {
   return null;
 }
 
+function getStoredSessionId() {
+  const fromStorage = localStorage.getItem('planner_session');
+  if (fromStorage) return fromStorage;
+  const cookieMatch = document.cookie.match(/(?:^|; )planner_session=([^;]+)/);
+  return cookieMatch ? decodeURIComponent(cookieMatch[1]) : null;
+}
+
+function hexToRgba(hex, alpha) {
+  const value = hex.replace('#', '');
+  if (value.length !== 6) return `rgba(99, 102, 241, ${alpha})`;
+  const r = parseInt(value.slice(0, 2), 16);
+  const g = parseInt(value.slice(2, 4), 16);
+  const b = parseInt(value.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 function getCalendarDays(currentMonth) {
   const year = currentMonth.getFullYear();
   const month = currentMonth.getMonth();
@@ -159,7 +175,7 @@ function MonthNavigator({ currentMonth, onMonthChange }) {
 
   return (
     <div className="month-navigator">
-      <button type="button" onClick={() => goToOffset(-1)} aria-label="Previous month">
+      <button type="button" className="nav-btn prev" onClick={() => goToOffset(-1)} aria-label="Previous month">
         ◀
       </button>
       <div className="month-picker" onWheel={handleWheel}>
@@ -198,7 +214,7 @@ function MonthNavigator({ currentMonth, onMonthChange }) {
           </button>
         </div>
       </div>
-      <button type="button" onClick={() => goToOffset(1)} aria-label="Next month">
+      <button type="button" className="nav-btn next" onClick={() => goToOffset(1)} aria-label="Next month">
         ▶
       </button>
     </div>
@@ -308,7 +324,7 @@ function EventForm({ onAddEvent, selectedRange, editingEvent, onResetEditing, di
   const [endTime, setEndTime] = useState('10:00');
   const [allDay, setAllDay] = useState(false);
   const [details, setDetails] = useState('');
-  const [color, setColor] = useState('#3b82f6');
+  const [color, setColor] = useState(initialUserSettings.accentColor);
   const [repeatUnit, setRepeatUnit] = useState('none');
   const [repeatEvery, setRepeatEvery] = useState(1);
   const [repeatUntil, setRepeatUntil] = useState('');
@@ -329,7 +345,7 @@ function EventForm({ onAddEvent, selectedRange, editingEvent, onResetEditing, di
       setEndTime(editingEvent.endTime || '10:00');
       setAllDay(Boolean(editingEvent.allDay));
       setDetails(editingEvent.details || '');
-      setColor(editingEvent.color || '#3b82f6');
+      setColor(editingEvent.color || initialUserSettings.accentColor);
       setRepeatUnit(editingEvent.repeatUnit || 'none');
       setRepeatEvery(editingEvent.repeatEvery || 1);
       setRepeatUntil(editingEvent.repeatUntil || '');
@@ -369,7 +385,7 @@ function EventForm({ onAddEvent, selectedRange, editingEvent, onResetEditing, di
     setEndTime('10:00');
     setAllDay(false);
     setDetails('');
-    setColor('#3b82f6');
+    setColor(initialUserSettings.accentColor);
     setRepeatUnit('none');
     setRepeatEvery(1);
     setRepeatUntil('');
@@ -508,7 +524,9 @@ function DayCell({ date, events, selectedRange, onSelectDate, onRangeExtend }) {
   const dateKey = formatDateValue(date);
   const dayEvents = events.filter((event) => dateKey >= event.startDate && dateKey <= event.endDate);
   const holidayEvents = regionalHolidays[dateKey] ?? [];
-  const sortedDayEvents = dayEvents.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const sortedDayEvents = [...dayEvents].sort(
+    (a, b) => (a.order ?? 0) - (b.order ?? 0) || (a.startTime || '').localeCompare(b.startTime || '') || a.title.localeCompare(b.title),
+  );
   const combinedEvents = [
     ...holidayEvents.map((holiday) => ({ id: holiday.name, title: holiday.name, allDay: true })),
     ...sortedDayEvents,
@@ -609,7 +627,9 @@ function SelectedDayDetails({ date, events, onEditEvent, onReorderEvent }) {
   const holidayEvents = regionalHolidays[date] ?? [];
   const dayEvents = events
     .filter((event) => date >= event.startDate && date <= event.endDate)
-    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    .sort(
+      (a, b) => (a.order ?? 0) - (b.order ?? 0) || (a.startTime || '').localeCompare(b.startTime || '') || a.title.localeCompare(b.title),
+    );
   const combinedEvents = [
     ...holidayEvents.map((holiday) => ({ id: holiday.name, title: holiday.name, allDay: true, tag: holiday.region })),
     ...dayEvents,
@@ -622,61 +642,60 @@ function SelectedDayDetails({ date, events, onEditEvent, onReorderEvent }) {
         <p className="muted">Full agenda for this day</p>
       </div>
       <div className="selected-day-list">
-        {combinedEvents.length === 0 && <p className="muted">No events or holidays yet.</p>}
-        {combinedEvents.map((event, idx) => {
+        {combinedEvents.map((event) => {
           const dayIndex = dayEvents.findIndex((dayEvent) => dayEvent.id === event.id);
           const isDraggable = dayIndex !== -1 && !event.tag;
           return (
-          <div
-            key={event.id}
-            className="selected-event"
-            draggable={isDraggable}
-            onDragStart={(e) => {
-              if (!isDraggable) return;
-              e.dataTransfer.setData('text/plain', String(dayIndex));
-              e.dataTransfer.effectAllowed = 'move';
-            }}
-            onDragOver={(e) => {
-              if (!isDraggable) return;
-              e.preventDefault();
-            }}
-            onDrop={(e) => {
-              if (!isDraggable) return;
-              e.preventDefault();
-              const fromIndex = Number(e.dataTransfer.getData('text/plain'));
-              const toIndex = dayIndex;
-              if (Number.isNaN(fromIndex)) return;
-              onReorderEvent(fromIndex, toIndex);
-            }}
-          >
-            <div className="selected-event-top">
-              <span className="selected-event-title">{event.title}</span>
-              {event.tag && <span className="badge">{event.tag}</span>}
-              {event.color && (
-                <span
-                  className="color-dot"
-                  style={{ background: event.color, borderColor: getTextColorForBackground(event.color) }}
-                  aria-label="Event color"
-                />
-              )}
-            </div>
-            <div className="selected-event-time">
-              {event.allDay || (!event.startTime && !event.endTime) ? 'All day' : event.startTime}
-              {event.endTime ? ` – ${event.endTime}` : ''}
-              {event.startDate && event.endDate && event.startDate !== event.endDate && (
-                <span className="date-range">({event.startDate} → {event.endDate})</span>
-              )}
-            </div>
-            {event.details && <p className="event-notes">{event.details}</p>}
-            {!event.tag && (
-              <div className="selected-event-actions">
-                <button type="button" onClick={() => onEditEvent(event)}>Edit</button>
-                <span className="drag-hint" aria-hidden="true">
-                  Drag to reorder
-                </span>
+            <div
+              key={event.id}
+              className="selected-event"
+              draggable={isDraggable}
+              onDragStart={(e) => {
+                if (!isDraggable) return;
+                e.dataTransfer.setData('text/plain', String(dayIndex));
+                e.dataTransfer.effectAllowed = 'move';
+              }}
+              onDragOver={(e) => {
+                if (!isDraggable) return;
+                e.preventDefault();
+              }}
+              onDrop={(e) => {
+                if (!isDraggable) return;
+                e.preventDefault();
+                const fromIndex = Number(e.dataTransfer.getData('text/plain'));
+                const toIndex = dayIndex;
+                if (Number.isNaN(fromIndex)) return;
+                onReorderEvent(fromIndex, toIndex);
+              }}
+            >
+              <div className="selected-event-top">
+                <span className="selected-event-title">{event.title}</span>
+                {event.tag && <span className="badge">{event.tag}</span>}
+                {event.color && (
+                  <span
+                    className="color-dot"
+                    style={{ background: event.color, borderColor: getTextColorForBackground(event.color) }}
+                    aria-label="Event color"
+                  />
+                )}
               </div>
-            )}
-          </div>
+              <div className="selected-event-time">
+                {event.allDay || (!event.startTime && !event.endTime) ? 'All day' : event.startTime}
+                {event.endTime ? ` – ${event.endTime}` : ''}
+                {event.startDate && event.endDate && event.startDate !== event.endDate && (
+                  <span className="date-range">({event.startDate} → {event.endDate})</span>
+                )}
+              </div>
+              {event.details && <p className="event-notes">{event.details}</p>}
+              {!event.tag && (
+                <div className="selected-event-actions">
+                  <button type="button" onClick={() => onEditEvent(event)}>Edit</button>
+                  <span className="drag-hint" aria-hidden="true">
+                    Drag to reorder
+                  </span>
+                </div>
+              )}
+            </div>
           );
         })}
       </div>
@@ -684,18 +703,15 @@ function SelectedDayDetails({ date, events, onEditEvent, onReorderEvent }) {
   );
 }
 
-function TopBar({ user, timeString, onToggleSettings, onLogout }) {
+function TopBar({ user, timeString, onToggleSettings }) {
   return (
     <div className="top-bar">
       <div className="top-clock">
         <span className="clock-label">Current time</span>
-        <span className="clock-value">{timeString}</span>
+        <span className="clock-value">{timeString || '--:--:--'}</span>
       </div>
       <div className="user-actions">
         {user && <span className="user-name">{user.displayName || user.username}</span>}
-        <button type="button" className="ghost" onClick={onLogout} disabled={!user}>
-          Log out
-        </button>
         <button type="button" className="avatar-button" onClick={onToggleSettings} aria-label="User settings">
           {user?.profileImage ? (
             <img src={user.profileImage} alt={user.displayName || user.username} />
@@ -708,7 +724,7 @@ function TopBar({ user, timeString, onToggleSettings, onLogout }) {
   );
 }
 
-function SettingsPanel({ user, onSave, onClose }) {
+function SettingsPanel({ user, onSave, onClose, onLogout }) {
   const [settings, setSettings] = useState({ ...initialUserSettings, ...(user ?? {}) });
 
   useEffect(() => {
@@ -735,7 +751,11 @@ function SettingsPanel({ user, onSave, onClose }) {
         </div>
         <form className="settings-form" onSubmit={handleSubmit}>
           <label>
-            Display name
+            Username (for login)
+            <input type="text" value={settings.username || ''} readOnly />
+          </label>
+          <label>
+            Name
             <input
               type="text"
               value={settings.displayName}
@@ -788,7 +808,9 @@ function SettingsPanel({ user, onSave, onClose }) {
           <label>
             Birthday
             <input
-              type="date"
+              type="text"
+              inputMode="numeric"
+              pattern="\d{4}-\d{2}-\d{2}"
               value={settings.birthday}
               onChange={(e) => handleChange('birthday', e.target.value)}
             />
@@ -811,6 +833,9 @@ function SettingsPanel({ user, onSave, onClose }) {
           </label>
           <div className="settings-actions">
             <button type="submit">Save settings</button>
+            <button type="button" className="ghost" onClick={onLogout}>
+              Log out
+            </button>
           </div>
         </form>
       </div>
@@ -843,7 +868,7 @@ export default function App() {
   });
   const [editingEvent, setEditingEvent] = useState(null);
   const [users, setUsers] = useState(loadUsers);
-  const [currentUserId, setCurrentUserId] = useState(() => localStorage.getItem('planner_session') || null);
+  const [currentUserId, setCurrentUserId] = useState(() => getStoredSessionId());
   const [authMode, setAuthMode] = useState('login');
   const [authError, setAuthError] = useState('');
   const [showSettings, setShowSettings] = useState(false);
@@ -856,6 +881,13 @@ export default function App() {
   }, [users]);
 
   useEffect(() => {
+    const sessionId = getStoredSessionId();
+    if (!currentUserId && sessionId) {
+      setCurrentUserId(sessionId);
+    }
+  }, []);
+
+  useEffect(() => {
     if (currentUser) {
       setEvents(currentUser.events || []);
       document.cookie = `planner_session=${currentUser.id}; path=/; max-age=${60 * 60 * 24 * 30}`;
@@ -864,6 +896,16 @@ export default function App() {
       setEvents([]);
     }
   }, [currentUser]);
+
+  useEffect(() => {
+    if (!currentUserId) return;
+    const exists = users.some((user) => user.id === currentUserId);
+    if (!exists) {
+      setCurrentUserId(null);
+      localStorage.removeItem('planner_session');
+      document.cookie = 'planner_session=; expires=Thu, 01 Jan 1970 00:00:01 GMT; path=/';
+    }
+  }, [currentUserId, users]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -888,7 +930,11 @@ export default function App() {
     const root = document.documentElement;
     const theme = currentUser?.theme || 'light';
     root.setAttribute('data-theme', theme);
-    root.style.setProperty('--accent', currentUser?.accentColor || initialUserSettings.accentColor);
+    const accent = currentUser?.accentColor || initialUserSettings.accentColor;
+    root.style.setProperty('--accent', accent);
+    root.style.setProperty('--accent-soft', hexToRgba(accent, 0.16));
+    root.style.setProperty('--accent-strong', hexToRgba(accent, 0.28));
+    root.style.setProperty('--accent-contrast', getTextColorForBackground(accent));
   }, [currentUser]);
 
   useEffect(() => {
@@ -906,6 +952,18 @@ export default function App() {
       });
       setClockString(formatter.format(new Date()));
     }, 1000);
+    if (currentUser) {
+      const formatter = new Intl.DateTimeFormat(undefined, {
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: currentUser.clockFormat !== '24',
+        timeZone: currentUser.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+      });
+      setClockString(formatter.format(new Date()));
+    } else {
+      setClockString('--:--:--');
+    }
     return () => clearInterval(interval);
   }, [currentUser]);
 
@@ -978,6 +1036,7 @@ export default function App() {
   const handleLogout = () => {
     setCurrentUserId(null);
     setEditingEvent(null);
+    setShowSettings(false);
     localStorage.removeItem('planner_session');
     document.cookie = 'planner_session=; expires=Thu, 01 Jan 1970 00:00:01 GMT; path=/';
   };
@@ -1079,7 +1138,7 @@ export default function App() {
         </div>
         <MonthNavigator currentMonth={currentMonth} onMonthChange={setCurrentMonth} />
       </header>
-      <TopBar user={currentUser} timeString={clockString} onToggleSettings={() => setShowSettings(true)} onLogout={handleLogout} />
+      <TopBar user={currentUser} timeString={clockString} onToggleSettings={() => setShowSettings(true)} />
       {currentUser?.zodiacEnabled && <HoroscopeCard zodiacSign={getZodiacSign(currentUser.birthday)} />}
 
       <main className="layout">
@@ -1121,7 +1180,12 @@ export default function App() {
       )}
 
       {showSettings && currentUser && (
-        <SettingsPanel user={currentUser} onSave={handleSaveSettings} onClose={() => setShowSettings(false)} />
+        <SettingsPanel
+          user={currentUser}
+          onSave={handleSaveSettings}
+          onClose={() => setShowSettings(false)}
+          onLogout={handleLogout}
+        />
       )}
     </div>
   );

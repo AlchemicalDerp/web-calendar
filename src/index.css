@@ -5,6 +5,9 @@
   min-height: 100vh;
   padding: 32px;
   --accent: #6366f1;
+  --accent-soft: rgba(99, 102, 241, 0.16);
+  --accent-strong: rgba(99, 102, 241, 0.28);
+  --accent-contrast: #ffffff;
   --surface: #ffffff;
   --border: #e5e7eb;
   --text: #111827;
@@ -20,6 +23,7 @@
   --border: #1f2937;
   --text: #e5e7eb;
   --muted: #94a3b8;
+  --accent-contrast: #0b1224;
 }
 
 body {
@@ -112,7 +116,7 @@ body {
 
 .eyebrow {
   margin: 0;
-  color: #6b7280;
+  color: var(--muted);
   letter-spacing: 0.08em;
   font-size: 12px;
   text-transform: uppercase;
@@ -142,17 +146,20 @@ h1 {
 }
 
 .month-navigator {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 10px;
+  column-gap: 12px;
 }
 
 .month-navigator h2 {
   margin: 0;
   font-size: 20px;
+  width: 100%;
+  text-align: center;
 }
 
-.month-navigator button {
+.month-navigator .nav-btn {
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
@@ -163,15 +170,23 @@ h1 {
   transition: all 0.15s ease;
 }
 
-.month-navigator button:hover {
-  background: var(--text);
-  color: white;
+.month-navigator .nav-btn.prev {
+  justify-self: start;
+  margin-right: 6px;
+}
+
+.month-navigator .nav-btn:hover {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-color: var(--accent);
 }
 
 .month-picker {
   display: flex;
   align-items: center;
   gap: 10px;
+  justify-content: center;
+  width: 100%;
 }
 
 .month-picker-input {
@@ -182,6 +197,7 @@ h1 {
   border-radius: 12px;
   border: 1px dashed var(--border);
   background: var(--panel);
+  min-width: 340px;
 }
 
 .month-picker select,
@@ -189,7 +205,7 @@ h1 {
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 8px 10px;
-  background: white;
+  background: var(--surface);
   min-width: 120px;
   font-weight: 600;
 }
@@ -198,12 +214,25 @@ h1 {
   max-width: 120px;
 }
 
+.month-picker select:focus,
+.month-picker input:focus,
+.jump-button:focus,
+.nav-btn:focus,
+.event-form input:focus,
+.event-form textarea:focus,
+.settings-form input:focus,
+.settings-form select:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .jump-button {
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 8px 10px;
-  background: linear-gradient(135deg, var(--accent), #a5b4fc);
-  color: var(--text);
+  padding: 8px 14px;
+  min-width: 78px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-soft));
+  color: var(--accent-contrast);
   cursor: pointer;
   font-weight: 700;
 }
@@ -241,7 +270,7 @@ h1 {
   flex-direction: column;
   gap: 6px;
   font-weight: 600;
-  color: #111827;
+  color: var(--text);
 }
 
 .event-form input,
@@ -251,6 +280,8 @@ h1 {
   padding: 10px 12px;
   font-size: 14px;
   font-family: inherit;
+  background: var(--surface);
+  color: var(--text);
 }
 
 .event-form textarea {
@@ -272,17 +303,17 @@ h1 {
 
 .event-form button {
   align-self: flex-start;
-  background: linear-gradient(135deg, #0ea5e9, var(--accent));
-  color: white;
+  background: linear-gradient(135deg, var(--accent), var(--accent-soft));
+  color: var(--accent-contrast);
   border: none;
   border-radius: 12px;
   padding: 10px 16px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 10px 25px rgba(99, 102, 241, 0.2);
+  box-shadow: 0 10px 25px var(--accent-soft);
 }
 
-.event-form .ghost {
+.ghost {
   background: none;
   box-shadow: none;
   border: 1px solid var(--border);
@@ -303,7 +334,7 @@ h1 {
 
 .day-label {
   font-weight: 700;
-  color: #6b7280;
+  color: var(--muted);
   text-align: center;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -349,7 +380,7 @@ h1 {
 }
 
 .day-weekday {
-  color: #6b7280;
+  color: var(--muted);
   font-size: 12px;
 }
 
@@ -365,8 +396,8 @@ h1 {
 
 .day-cell.selected {
   border-color: var(--accent);
-  background: rgba(99, 102, 241, 0.12);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 3px var(--accent-strong);
 }
 
 .event-list {
@@ -392,13 +423,13 @@ h1 {
 }
 
 .event-time {
-  color: #4b5563;
+  color: var(--muted);
   font-size: 13px;
 }
 
 .event-notes {
   margin: 6px 0 0;
-  color: #6b7280;
+  color: var(--muted);
   font-size: 13px;
 }
 
@@ -455,7 +486,7 @@ h1 {
 }
 
 .drag-hint {
-  color: #6b7280;
+  color: var(--muted);
   font-size: 12px;
   font-weight: 600;
 }
@@ -469,7 +500,7 @@ h1 {
 
 .date-range {
   margin-left: 6px;
-  color: #6b7280;
+  color: var(--muted);
 }
 
 .selected-event-title {
@@ -477,13 +508,13 @@ h1 {
 }
 
 .selected-event-time {
-  color: #4b5563;
+  color: var(--muted);
   font-size: 13px;
 }
 
 .badge {
-  background: #eef2ff;
-  color: #4338ca;
+  background: var(--accent-soft);
+  color: var(--accent);
   border-radius: 999px;
   padding: 2px 10px;
   font-size: 12px;
@@ -491,7 +522,7 @@ h1 {
 }
 
 .muted {
-  color: #6b7280;
+  color: var(--muted);
   font-size: 13px;
 }
 
@@ -530,6 +561,8 @@ h1 {
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 10px 12px;
+  background: var(--surface);
+  color: var(--text);
 }
 
 .auth-card button {
@@ -591,6 +624,8 @@ h1 {
   border-radius: 10px;
   padding: 10px 12px;
   font-size: 14px;
+  background: var(--surface);
+  color: var(--text);
 }
 
 .settings-actions {
