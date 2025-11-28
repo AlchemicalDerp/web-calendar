@@ -58,10 +58,12 @@ function MonthNavigator({ currentMonth, onMonthChange }) {
     year: 'numeric',
   });
 
-  const [pickerValue, setPickerValue] = useState(() => formatDateValue(currentMonth).slice(0, 7));
+  const [monthInput, setMonthInput] = useState(currentMonth.getMonth());
+  const [yearInput, setYearInput] = useState(currentMonth.getFullYear().toString());
 
   useEffect(() => {
-    setPickerValue(formatDateValue(currentMonth).slice(0, 7));
+    setMonthInput(currentMonth.getMonth());
+    setYearInput(currentMonth.getFullYear().toString());
   }, [currentMonth]);
 
   const goToOffset = (offset) => {
@@ -70,10 +72,12 @@ function MonthNavigator({ currentMonth, onMonthChange }) {
     onMonthChange(updated);
   };
 
-  const handleMonthInput = (value) => {
-    if (!value) return;
-    const [year, month] = value.split('-');
-    const updated = new Date(Number(year), Number(month) - 1, 1);
+  const handleJump = () => {
+    if (!yearInput) return;
+    const safeYear = Math.max(1, Number.parseInt(yearInput, 10));
+    const safeMonth = Number(monthInput);
+    if (Number.isNaN(safeYear) || Number.isNaN(safeMonth)) return;
+    const updated = new Date(safeYear, safeMonth, 1);
     onMonthChange(updated);
   };
 
@@ -88,16 +92,38 @@ function MonthNavigator({ currentMonth, onMonthChange }) {
       <button type="button" onClick={() => goToOffset(-1)} aria-label="Previous month">
         ◀
       </button>
-      <div className="month-picker">
+      <div className="month-picker" onWheel={handleWheel}>
         <h2>{monthName}</h2>
-        <div className="month-picker-input" onWheel={handleWheel}>
+        <div className="month-picker-input">
+          <label className="visually-hidden" htmlFor="month-select">
+            Select month
+          </label>
+          <select
+            id="month-select"
+            value={monthInput}
+            onChange={(e) => setMonthInput(Number(e.target.value))}
+            aria-label="Select month"
+          >
+            {Array.from({ length: 12 }).map((_, idx) => (
+              <option key={idx} value={idx}>
+                {new Date(0, idx).toLocaleString('default', { month: 'long' })}
+              </option>
+            ))}
+          </select>
+          <label className="visually-hidden" htmlFor="year-input">
+            Enter year
+          </label>
           <input
-            type="month"
-            aria-label="Jump to month"
-            value={pickerValue}
-            onChange={(e) => handleMonthInput(e.target.value)}
+            id="year-input"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            aria-label="Enter year"
+            value={yearInput}
+            onChange={(e) => setYearInput(e.target.value.replace(/[^0-9]/g, ''))}
+            placeholder="2025"
           />
-          <button type="button" className="jump-button" onClick={() => handleMonthInput(pickerValue)}>
+          <button type="button" className="jump-button" onClick={handleJump}>
             Jump
           </button>
         </div>
@@ -121,7 +147,7 @@ function EventForm({ onAddEvent, selectedRange, editingEvent, onResetEditing }) 
   const [color, setColor] = useState('#3b82f6');
   const [repeatUnit, setRepeatUnit] = useState('none');
   const [repeatEvery, setRepeatEvery] = useState(1);
-  const [repeatCount, setRepeatCount] = useState(1);
+  const [repeatUntil, setRepeatUntil] = useState('');
 
   useEffect(() => {
     if (selectedRange?.start) {
@@ -142,7 +168,7 @@ function EventForm({ onAddEvent, selectedRange, editingEvent, onResetEditing }) 
       setColor(editingEvent.color || '#3b82f6');
       setRepeatUnit(editingEvent.repeatUnit || 'none');
       setRepeatEvery(editingEvent.repeatEvery || 1);
-      setRepeatCount(editingEvent.repeatCount || 1);
+      setRepeatUntil(editingEvent.repeatUntil || '');
     }
   }, [editingEvent]);
 
@@ -150,8 +176,8 @@ function EventForm({ onAddEvent, selectedRange, editingEvent, onResetEditing }) 
     event.preventDefault();
     if (!title.trim() || !startDate) return;
     const sanitizedRepeatUnit = repeatUnit === 'none' ? null : repeatUnit;
-    const count = sanitizedRepeatUnit ? Math.max(1, Number(repeatCount)) : 1;
     const every = sanitizedRepeatUnit ? Math.max(1, Number(repeatEvery)) : 1;
+    const sanitizedRepeatUntil = sanitizedRepeatUnit ? repeatUntil || null : null;
 
     onAddEvent({
       baseEvent: {
@@ -166,7 +192,7 @@ function EventForm({ onAddEvent, selectedRange, editingEvent, onResetEditing }) 
         color,
         repeatUnit: sanitizedRepeatUnit,
         repeatEvery: every,
-        repeatCount: count,
+        repeatUntil: sanitizedRepeatUntil,
         order: editingEvent?.order,
       },
       editing: Boolean(editingEvent),
@@ -182,7 +208,7 @@ function EventForm({ onAddEvent, selectedRange, editingEvent, onResetEditing }) 
     setColor('#3b82f6');
     setRepeatUnit('none');
     setRepeatEvery(1);
-    setRepeatCount(1);
+    setRepeatUntil('');
     onResetEditing();
   };
 
@@ -263,14 +289,14 @@ function EventForm({ onAddEvent, selectedRange, editingEvent, onResetEditing }) 
           </div>
         </label>
         <label>
-          Repeat count
+          Expires when
           <input
-            type="number"
-            min="1"
-            value={repeatCount}
-            onChange={(e) => setRepeatCount(e.target.value)}
+            type="date"
+            value={repeatUntil}
+            onChange={(e) => setRepeatUntil(e.target.value)}
             disabled={repeatUnit === 'none'}
           />
+          <p className="muted micro-copy">Leave empty to repeat indefinitely.</p>
         </label>
       </div>
       <label>
@@ -296,15 +322,17 @@ function DayCell({ date, events, selectedRange, onSelectDate, onRangeExtend }) {
   const dateKey = formatDateValue(date);
   const dayEvents = events.filter((event) => dateKey >= event.startDate && dateKey <= event.endDate);
   const holidayEvents = regionalHolidays[dateKey] ?? [];
+  const sortedDayEvents = dayEvents.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   const combinedEvents = [
     ...holidayEvents.map((holiday) => ({ id: holiday.name, title: holiday.name, allDay: true })),
-    ...dayEvents.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
+    ...sortedDayEvents,
   ];
+  const topEvent = combinedEvents[0];
   const hasEvents = combinedEvents.length > 0;
   const isSelected =
     dateKey >= (selectedRange?.start || '') && dateKey <= (selectedRange?.end || selectedRange?.start || '');
-  const hasMultipleUserEvents = dayEvents.length > 1;
-  const topColorEvent = dayEvents.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))[0];
+  const hasMultipleEvents = combinedEvents.length > 1;
+  const topColorEvent = sortedDayEvents[0];
 
   const handleClick = (e) => {
     if ((e.ctrlKey || e.shiftKey) && selectedRange?.start && dateKey > selectedRange.start) {
@@ -326,27 +354,27 @@ function DayCell({ date, events, selectedRange, onSelectDate, onRangeExtend }) {
         <span className="day-number">{dateLabel}</span>
         <span className="day-weekday">{dayLabels[date.getDay()]}</span>
         {hasEvents && <span className="note-icon" aria-hidden="true">🗒️</span>}
-        {hasMultipleUserEvents && <span className="multiple-icon" aria-hidden="true">⭐</span>}
+        {hasMultipleEvents && <span className="multiple-icon" aria-hidden="true">⭐</span>}
       </div>
       <ul className="event-list">
-        {combinedEvents.map((event) => (
+        {topEvent && (
           <li
-            key={event.id}
+            key={topEvent.id}
             className="event-chip"
             style={
-              event.color
-                ? { background: event.color, color: getTextColorForBackground(event.color) }
+              topEvent.color
+                ? { background: topEvent.color, color: getTextColorForBackground(topEvent.color) }
                 : undefined
             }
           >
-            <div className="event-title">{event.title}</div>
+            <div className="event-title">{topEvent.title}</div>
             <div className="event-time">
-              {event.allDay || (!event.startTime && !event.endTime) ? 'All day' : event.startTime}
-              {event.endTime ? ` – ${event.endTime}` : ''}
+              {topEvent.allDay || (!topEvent.startTime && !topEvent.endTime) ? 'All day' : topEvent.startTime}
+              {topEvent.endTime ? ` – ${topEvent.endTime}` : ''}
             </div>
-            {event.details && <p className="event-notes">{event.details}</p>}
+            {topEvent.details && <p className="event-notes">{topEvent.details}</p>}
           </li>
-        ))}
+        )}
       </ul>
     </button>
   );
@@ -376,7 +404,7 @@ function CalendarGrid({ currentMonth, events, selectedRange, onSelectDate, onRan
   );
 }
 
-function SelectedDayDetails({ date, events, onEditEvent, onMoveEvent }) {
+function SelectedDayDetails({ date, events, onEditEvent, onReorderEvent }) {
   if (!date) {
     return (
       <div className="selected-day-panel">
@@ -411,8 +439,30 @@ function SelectedDayDetails({ date, events, onEditEvent, onMoveEvent }) {
         {combinedEvents.length === 0 && <p className="muted">No events or holidays yet.</p>}
         {combinedEvents.map((event, idx) => {
           const dayIndex = dayEvents.findIndex((dayEvent) => dayEvent.id === event.id);
+          const isDraggable = dayIndex !== -1 && !event.tag;
           return (
-          <div key={event.id} className="selected-event">
+          <div
+            key={event.id}
+            className="selected-event"
+            draggable={isDraggable}
+            onDragStart={(e) => {
+              if (!isDraggable) return;
+              e.dataTransfer.setData('text/plain', String(dayIndex));
+              e.dataTransfer.effectAllowed = 'move';
+            }}
+            onDragOver={(e) => {
+              if (!isDraggable) return;
+              e.preventDefault();
+            }}
+            onDrop={(e) => {
+              if (!isDraggable) return;
+              e.preventDefault();
+              const fromIndex = Number(e.dataTransfer.getData('text/plain'));
+              const toIndex = dayIndex;
+              if (Number.isNaN(fromIndex)) return;
+              onReorderEvent(fromIndex, toIndex);
+            }}
+          >
             <div className="selected-event-top">
               <span className="selected-event-title">{event.title}</span>
               {event.tag && <span className="badge">{event.tag}</span>}
@@ -435,14 +485,9 @@ function SelectedDayDetails({ date, events, onEditEvent, onMoveEvent }) {
             {!event.tag && (
               <div className="selected-event-actions">
                 <button type="button" onClick={() => onEditEvent(event)}>Edit</button>
-                <div className="reorder-buttons">
-                  <button type="button" aria-label="Move earlier" onClick={() => onMoveEvent(dayIndex, 'up')}>
-                    ↑
-                  </button>
-                  <button type="button" aria-label="Move later" onClick={() => onMoveEvent(dayIndex, 'down')}>
-                    ↓
-                  </button>
-                </div>
+                <span className="drag-hint" aria-hidden="true">
+                  Drag to reorder
+                </span>
               </div>
             )}
           </div>
@@ -470,26 +515,38 @@ export default function App() {
 
   const handleAddEvent = ({ baseEvent, editing }) => {
     setEvents((existing) => {
-      const cleanedExisting = editing ? existing.filter((event) => event.id !== baseEvent.id) : existing;
+      const cleanedExisting = editing
+        ? existing.filter((event) => event.id !== baseEvent.id && !event.id.startsWith(`${baseEvent.id}-`))
+        : existing;
 
       const occurrences = [];
-      const count = baseEvent.repeatUnit ? baseEvent.repeatCount : 1;
-      for (let i = 0; i < count; i += 1) {
-        const start = baseEvent.repeatUnit
-          ? addToDate(new Date(baseEvent.startDate), i * baseEvent.repeatEvery, baseEvent.repeatUnit)
-          : new Date(baseEvent.startDate);
-        const end = baseEvent.repeatUnit
-          ? addToDate(new Date(baseEvent.endDate), i * baseEvent.repeatEvery, baseEvent.repeatUnit)
-          : new Date(baseEvent.endDate);
+      const repeatUntilDate = baseEvent.repeatUntil ? new Date(baseEvent.repeatUntil) : null;
+      const hasRepeat = Boolean(baseEvent.repeatUnit);
+      const maxOccurrences = hasRepeat ? 200 : 1;
 
+      let currentStart = new Date(baseEvent.startDate);
+      let currentEnd = new Date(baseEvent.endDate);
+      let index = 0;
+
+      while (index < maxOccurrences) {
         occurrences.push({
           ...baseEvent,
-          id: i === 0 ? baseEvent.id : `${baseEvent.id}-${i}`,
-          startDate: formatDateValue(start),
-          endDate: formatDateValue(end),
-          repeatIndex: i,
-          order: editing ? baseEvent.order ?? 0 : nextOrderForDate(formatDateValue(start)),
+          id: index === 0 ? baseEvent.id : `${baseEvent.id}-${index}`,
+          startDate: formatDateValue(currentStart),
+          endDate: formatDateValue(currentEnd),
+          repeatIndex: index,
+          order: editing ? baseEvent.order ?? 0 : nextOrderForDate(formatDateValue(currentStart)),
         });
+
+        if (!hasRepeat) break;
+        const nextStart = addToDate(currentStart, baseEvent.repeatEvery, baseEvent.repeatUnit);
+        const nextEnd = addToDate(currentEnd, baseEvent.repeatEvery, baseEvent.repeatUnit);
+
+        if (repeatUntilDate && nextStart > repeatUntilDate) break;
+
+        currentStart = nextStart;
+        currentEnd = nextEnd;
+        index += 1;
       }
 
       return [...cleanedExisting, ...occurrences];
@@ -513,22 +570,24 @@ export default function App() {
     setEditingEvent(null);
   };
 
-  const handleMoveEvent = (index, direction) => {
-    if (index < 0) return;
+  const handleReorderEvent = (fromIndex, toIndex) => {
     const date = selectedRange.start;
     setEvents((existing) => {
       const dayEvents = existing
         .filter((event) => date >= event.startDate && date <= event.endDate)
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-      const targetIndex = direction === 'up' ? index - 1 : index + 1;
-      if (targetIndex < 0 || targetIndex >= dayEvents.length) return existing;
-      const temp = dayEvents[index].order;
-      dayEvents[index].order = dayEvents[targetIndex].order;
-      dayEvents[targetIndex].order = temp;
+
+      if (fromIndex < 0 || toIndex < 0 || fromIndex >= dayEvents.length || toIndex >= dayEvents.length) {
+        return existing;
+      }
+
+      const updatedOrder = [...dayEvents];
+      const [moved] = updatedOrder.splice(fromIndex, 1);
+      updatedOrder.splice(toIndex, 0, moved);
 
       return existing.map((event) => {
-        const match = dayEvents.find((d) => d.id === event.id);
-        return match ? { ...event, order: match.order } : event;
+        const orderIndex = updatedOrder.findIndex((item) => item.id === event.id);
+        return orderIndex >= 0 ? { ...event, order: orderIndex } : event;
       });
     });
   };
@@ -555,7 +614,7 @@ export default function App() {
             date={selectedRange.start}
             events={events}
             onEditEvent={handleEditEvent}
-            onMoveEvent={handleMoveEvent}
+            onReorderEvent={handleReorderEvent}
           />
         </section>
 
