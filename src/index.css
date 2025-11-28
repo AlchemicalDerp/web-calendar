@@ -4,10 +4,28 @@
   background: radial-gradient(circle at 20% 20%, #f0f9ff, #ffffff);
   min-height: 100vh;
   padding: 32px;
+  --accent: #6366f1;
+  --surface: #ffffff;
+  --border: #e5e7eb;
+  --text: #111827;
+  --muted: #6b7280;
+  --panel: #f9fafb;
+}
+
+[data-theme='dark'] {
+  color: #e5e7eb;
+  background: radial-gradient(circle at 20% 20%, #0f172a, #0b1224);
+  --surface: #0f172a;
+  --panel: #111827;
+  --border: #1f2937;
+  --text: #e5e7eb;
+  --muted: #94a3b8;
 }
 
 body {
   margin: 0;
+  color: var(--text);
+  background: transparent;
 }
 
 * {
@@ -20,6 +38,69 @@ body {
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: 0 8px 18px rgba(17, 24, 39, 0.08);
+}
+
+.top-clock {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.clock-label {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.clock-value {
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.user-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.user-name {
+  font-weight: 700;
+}
+
+.avatar-button {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--panel);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.avatar-button img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-fallback {
+  font-weight: 700;
+  color: var(--text);
 }
 
 .app-header {
@@ -49,8 +130,8 @@ h1 {
 }
 
 .panel {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 16px;
   padding: 20px;
   box-shadow: 0 10px 30px rgba(17, 24, 39, 0.08);
@@ -72,9 +153,9 @@ h1 {
 }
 
 .month-navigator button {
-  border: 1px solid #d1d5db;
-  background: #ffffff;
-  color: #111827;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
   border-radius: 10px;
   width: 36px;
   height: 36px;
@@ -83,7 +164,7 @@ h1 {
 }
 
 .month-navigator button:hover {
-  background: #111827;
+  background: var(--text);
   color: white;
 }
 
@@ -99,13 +180,13 @@ h1 {
   gap: 10px;
   padding: 8px 12px;
   border-radius: 12px;
-  border: 1px dashed #d1d5db;
-  background: #f8fafc;
+  border: 1px dashed var(--border);
+  background: var(--panel);
 }
 
 .month-picker select,
 .month-picker input[type='text'] {
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 8px 10px;
   background: white;
@@ -118,11 +199,11 @@ h1 {
 }
 
 .jump-button {
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 8px 10px;
-  background: linear-gradient(135deg, #c7d2fe, #a5b4fc);
-  color: #111827;
+  background: linear-gradient(135deg, var(--accent), #a5b4fc);
+  color: var(--text);
   cursor: pointer;
   font-weight: 700;
 }
@@ -165,7 +246,7 @@ h1 {
 
 .event-form input,
 .event-form textarea {
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 10px 12px;
   font-size: 14px;
@@ -191,7 +272,7 @@ h1 {
 
 .event-form button {
   align-self: flex-start;
-  background: linear-gradient(135deg, #0ea5e9, #6366f1);
+  background: linear-gradient(135deg, #0ea5e9, var(--accent));
   color: white;
   border: none;
   border-radius: 12px;
@@ -204,8 +285,8 @@ h1 {
 .event-form .ghost {
   background: none;
   box-shadow: none;
-  border: 1px solid #e5e7eb;
-  color: #111827;
+  border: 1px solid var(--border);
+  color: var(--text);
 }
 
 .repeat-row {
@@ -231,9 +312,9 @@ h1 {
 
 .day-cell {
   min-height: 140px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border);
   border-radius: 12px;
-  background: #f9fafb;
+  background: var(--panel);
   padding: 10px;
   display: flex;
   flex-direction: column;
@@ -248,7 +329,7 @@ h1 {
 }
 
 .day-cell:hover {
-  border-color: #c7d2fe;
+  border-color: var(--accent);
 }
 
 .day-cell.empty {
@@ -283,8 +364,8 @@ h1 {
 }
 
 .day-cell.selected {
-  border-color: #a5b4fc;
-  background: #eef2ff;
+  border-color: var(--accent);
+  background: rgba(99, 102, 241, 0.12);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
 }
 
@@ -298,10 +379,10 @@ h1 {
 }
 
 .event-chip {
-  background: white;
+  background: var(--surface);
   border-radius: 10px;
   padding: 8px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border);
   box-shadow: 0 6px 14px rgba(17, 24, 39, 0.05);
 }
 
@@ -323,10 +404,10 @@ h1 {
 
 .selected-day-panel {
   margin-top: 16px;
-  border: 1px dashed #d1d5db;
+  border: 1px dashed var(--border);
   border-radius: 12px;
   padding: 14px;
-  background: #f9fafb;
+  background: var(--panel);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -347,8 +428,8 @@ h1 {
 }
 
 .selected-event {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 10px 12px;
   box-shadow: 0 8px 18px rgba(17, 24, 39, 0.05);
@@ -417,6 +498,125 @@ h1 {
 .micro-copy {
   margin: 6px 0 0;
   line-height: 1.4;
+}
+
+.auth-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.35);
+  backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.auth-card {
+  background: var(--surface);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  padding: 20px;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.2);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.auth-form input {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.auth-card button {
+  width: fit-content;
+}
+
+.auth-footer {
+  margin-top: 10px;
+  color: var(--muted);
+}
+
+.link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.error-text {
+  color: #ef4444;
+  font-weight: 700;
+}
+
+.settings-drawer {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  display: flex;
+  justify-content: flex-end;
+  z-index: 10;
+}
+
+.settings-content {
+  width: min(420px, 90vw);
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  padding: 20px;
+  overflow-y: auto;
+  box-shadow: -10px 0 30px rgba(15, 23, 42, 0.2);
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.settings-form input,
+.settings-form select {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.settings-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.horoscope-card {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 8px 18px rgba(17, 24, 39, 0.08);
+}
+
+.horoscope-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--accent), #c084fc);
+  display: grid;
+  place-items: center;
+  font-size: 18px;
 }
 
 @media (max-width: 960px) {

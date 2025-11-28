@@ -35,6 +35,76 @@ const regionalHolidays = {
   '2024-07-04': [{ name: 'Independence Day', region: 'US' }],
 };
 
+const horoscopeBySign = {
+  Aries: 'Channel your drive into something tangible today—momentum is on your side.',
+  Taurus: 'Ground yourself with small routines; comfort will fuel your creativity.',
+  Gemini: 'Stay curious and ask more questions—conversations spark fresh ideas.',
+  Cancer: 'Protect your energy and lean on your circle; support is closer than you think.',
+  Leo: 'Lead with warmth. Your confidence can brighten someone else’s day.',
+  Virgo: 'Organize the details, but remember to pause—clarity comes with rest.',
+  Libra: 'Seek balance between commitments. A tiny adjustment restores harmony.',
+  Scorpio: 'Trust your instincts; the subtle clues you notice are meaningful.',
+  Sagittarius: 'Say yes to a new experience. Adventure unlocks the path ahead.',
+  Capricorn: 'Steady progress wins. Celebrate small wins to keep momentum.',
+  Aquarius: 'Share your ideas. Collaboration brings your vision into focus.',
+  Pisces: 'Give your imagination space to wander—answers surface when you flow.',
+};
+
+const initialUserSettings = {
+  displayName: '',
+  profileImage: '',
+  theme: 'light',
+  accentColor: '#6366f1',
+  region: 'US',
+  timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  birthday: '',
+  zodiacEnabled: false,
+  clockFormat: '12',
+};
+
+function loadUsers() {
+  const stored = localStorage.getItem('planner_users');
+  if (!stored) return [];
+  try {
+    return JSON.parse(stored);
+  } catch (error) {
+    console.error('Failed to parse users', error);
+    return [];
+  }
+}
+
+function getZodiacSign(dateString) {
+  if (!dateString) return null;
+  const [year, month, day] = dateString.split('-').map(Number);
+  if (!year || !month || !day) return null;
+  const monthDay = (month - 1) * 31 + day; // coarse ordering for range checks
+
+  const ranges = [
+    { sign: 'Capricorn', start: 12 * 31 + 22, end: 1 * 31 + 19 },
+    { sign: 'Aquarius', start: 1 * 31 + 20, end: 2 * 31 + 18 },
+    { sign: 'Pisces', start: 2 * 31 + 19, end: 3 * 31 + 20 },
+    { sign: 'Aries', start: 3 * 31 + 21, end: 4 * 31 + 19 },
+    { sign: 'Taurus', start: 4 * 31 + 20, end: 5 * 31 + 20 },
+    { sign: 'Gemini', start: 5 * 31 + 21, end: 6 * 31 + 20 },
+    { sign: 'Cancer', start: 6 * 31 + 21, end: 7 * 31 + 22 },
+    { sign: 'Leo', start: 7 * 31 + 23, end: 8 * 31 + 22 },
+    { sign: 'Virgo', start: 8 * 31 + 23, end: 9 * 31 + 22 },
+    { sign: 'Libra', start: 9 * 31 + 23, end: 10 * 31 + 22 },
+    { sign: 'Scorpio', start: 10 * 31 + 23, end: 11 * 31 + 21 },
+    { sign: 'Sagittarius', start: 11 * 31 + 22, end: 12 * 31 + 21 },
+  ];
+
+  for (const range of ranges) {
+    if (range.start > range.end) {
+      if (monthDay >= range.start || monthDay <= range.end) return range.sign;
+    } else if (monthDay >= range.start && monthDay <= range.end) {
+      return range.sign;
+    }
+  }
+
+  return null;
+}
+
 function getCalendarDays(currentMonth) {
   const year = currentMonth.getFullYear();
   const month = currentMonth.getMonth();
@@ -135,7 +205,101 @@ function MonthNavigator({ currentMonth, onMonthChange }) {
   );
 }
 
-function EventForm({ onAddEvent, selectedRange, editingEvent, onResetEditing }) {
+function AuthModal({ mode, onSwitchMode, onLogin, onSignup, error }) {
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    if (mode === 'login') {
+      onLogin({ identifier: username || email, password });
+    } else {
+      onSignup({ username, email, password, confirmPassword });
+    }
+  };
+
+  return (
+    <div className="auth-overlay" role="dialog" aria-modal="true">
+      <div className="auth-card">
+        <h2>{mode === 'login' ? 'Welcome back' : 'Create your account'}</h2>
+        <p className="muted">Sign in to sync your calendar and settings.</p>
+        {error && <p className="error-text">{error}</p>}
+        <form className="auth-form" onSubmit={handleSubmit}>
+          <label>
+            Username
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="yourhandle"
+              required={mode === 'signup'}
+            />
+          </label>
+          {mode === 'signup' && (
+            <label>
+              Email
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                required
+              />
+            </label>
+          )}
+          {mode === 'login' && (
+            <label>
+              Email (optional)
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+              />
+            </label>
+          )}
+          <label>
+            Password
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          </label>
+          {mode === 'signup' && (
+            <label>
+              Confirm password
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+              />
+            </label>
+          )}
+          <button type="submit">{mode === 'login' ? 'Log in' : 'Sign up'}</button>
+        </form>
+        <div className="auth-footer">
+          {mode === 'login' ? (
+            <p>
+              New here?{' '}
+              <button type="button" className="link" onClick={() => onSwitchMode('signup')}>
+                Create an account
+              </button>
+            </p>
+          ) : (
+            <p>
+              Already registered?{' '}
+              <button type="button" className="link" onClick={() => onSwitchMode('login')}>
+                Log in instead
+              </button>
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EventForm({ onAddEvent, selectedRange, editingEvent, onResetEditing, disabled }) {
   const today = formatDateValue(new Date());
   const [title, setTitle] = useState('');
   const [startDate, setStartDate] = useState(today);
@@ -174,7 +338,7 @@ function EventForm({ onAddEvent, selectedRange, editingEvent, onResetEditing }) 
 
   const handleSubmit = (event) => {
     event.preventDefault();
-    if (!title.trim() || !startDate) return;
+    if (!title.trim() || !startDate || disabled) return;
     const sanitizedRepeatUnit = repeatUnit === 'none' ? null : repeatUnit;
     const every = sanitizedRepeatUnit ? Math.max(1, Number(repeatEvery)) : 1;
     const sanitizedRepeatUntil = sanitizedRepeatUnit ? repeatUntil || null : null;
@@ -230,16 +394,29 @@ function EventForm({ onAddEvent, selectedRange, editingEvent, onResetEditing }) 
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Team sync"
           required
+          disabled={disabled}
         />
       </label>
       <div className="form-row">
         <label>
           Start date
-          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            required
+            disabled={disabled}
+          />
         </label>
         <label>
           End date
-          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required />
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            required
+            disabled={disabled}
+          />
         </label>
         <label>
           Start
@@ -247,7 +424,7 @@ function EventForm({ onAddEvent, selectedRange, editingEvent, onResetEditing }) 
             type="time"
             value={startTime}
             onChange={(e) => setStartTime(e.target.value)}
-            disabled={allDay}
+            disabled={allDay || disabled}
           />
         </label>
         <label>
@@ -256,18 +433,23 @@ function EventForm({ onAddEvent, selectedRange, editingEvent, onResetEditing }) 
             type="time"
             value={endTime}
             onChange={(e) => setEndTime(e.target.value)}
-            disabled={allDay}
+            disabled={allDay || disabled}
           />
         </label>
       </div>
       <label className="checkbox">
-        <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />
+        <input
+          type="checkbox"
+          checked={allDay}
+          onChange={(e) => setAllDay(e.target.checked)}
+          disabled={disabled}
+        />
         All day event
       </label>
       <div className="form-row">
         <label>
           Color code
-          <input type="color" value={color} onChange={(e) => setColor(e.target.value)} />
+          <input type="color" value={color} onChange={(e) => setColor(e.target.value)} disabled={disabled} />
         </label>
         <label>
           Repeat every
@@ -277,7 +459,7 @@ function EventForm({ onAddEvent, selectedRange, editingEvent, onResetEditing }) 
               min="1"
               value={repeatEvery}
               onChange={(e) => setRepeatEvery(e.target.value)}
-              disabled={repeatUnit === 'none'}
+              disabled={repeatUnit === 'none' || disabled}
             />
             <select value={repeatUnit} onChange={(e) => setRepeatUnit(e.target.value)}>
               <option value="none">Does not repeat</option>
@@ -294,7 +476,7 @@ function EventForm({ onAddEvent, selectedRange, editingEvent, onResetEditing }) 
             type="date"
             value={repeatUntil}
             onChange={(e) => setRepeatUntil(e.target.value)}
-            disabled={repeatUnit === 'none'}
+            disabled={repeatUnit === 'none' || disabled}
           />
           <p className="muted micro-copy">Leave empty to repeat indefinitely.</p>
         </label>
@@ -306,9 +488,13 @@ function EventForm({ onAddEvent, selectedRange, editingEvent, onResetEditing }) 
           onChange={(e) => setDetails(e.target.value)}
           placeholder="Agenda, location, links"
           rows="2"
+          disabled={disabled}
         />
       </label>
-      <button type="submit">{editingEvent ? 'Save changes' : 'Add to calendar'}</button>
+      <button type="submit" disabled={disabled}>
+        {editingEvent ? 'Save changes' : 'Add to calendar'}
+      </button>
+      {disabled && <p className="muted">Sign in to add or edit events.</p>}
     </form>
   );
 }
@@ -498,6 +684,156 @@ function SelectedDayDetails({ date, events, onEditEvent, onReorderEvent }) {
   );
 }
 
+function TopBar({ user, timeString, onToggleSettings, onLogout }) {
+  return (
+    <div className="top-bar">
+      <div className="top-clock">
+        <span className="clock-label">Current time</span>
+        <span className="clock-value">{timeString}</span>
+      </div>
+      <div className="user-actions">
+        {user && <span className="user-name">{user.displayName || user.username}</span>}
+        <button type="button" className="ghost" onClick={onLogout} disabled={!user}>
+          Log out
+        </button>
+        <button type="button" className="avatar-button" onClick={onToggleSettings} aria-label="User settings">
+          {user?.profileImage ? (
+            <img src={user.profileImage} alt={user.displayName || user.username} />
+          ) : (
+            <span className="avatar-fallback">{(user?.displayName || user?.username || 'U')[0]}</span>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SettingsPanel({ user, onSave, onClose }) {
+  const [settings, setSettings] = useState({ ...initialUserSettings, ...(user ?? {}) });
+
+  useEffect(() => {
+    setSettings({ ...initialUserSettings, ...(user ?? {}) });
+  }, [user]);
+
+  const handleChange = (key, value) => {
+    setSettings((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    onSave(settings);
+  };
+
+  return (
+    <div className="settings-drawer" role="dialog" aria-modal="true">
+      <div className="settings-content">
+        <div className="settings-header">
+          <h3>Profile & Preferences</h3>
+          <button type="button" className="ghost" onClick={onClose}>
+            Close
+          </button>
+        </div>
+        <form className="settings-form" onSubmit={handleSubmit}>
+          <label>
+            Display name
+            <input
+              type="text"
+              value={settings.displayName}
+              onChange={(e) => handleChange('displayName', e.target.value)}
+              placeholder="Your name"
+            />
+          </label>
+          <label>
+            Profile image URL
+            <input
+              type="url"
+              value={settings.profileImage}
+              onChange={(e) => handleChange('profileImage', e.target.value)}
+              placeholder="https://..."
+            />
+          </label>
+          <label>
+            Theme
+            <select value={settings.theme} onChange={(e) => handleChange('theme', e.target.value)}>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </label>
+          <label>
+            Accent color
+            <input
+              type="color"
+              value={settings.accentColor}
+              onChange={(e) => handleChange('accentColor', e.target.value)}
+            />
+          </label>
+          <label>
+            Region
+            <input
+              type="text"
+              value={settings.region}
+              onChange={(e) => handleChange('region', e.target.value)}
+              placeholder="US"
+            />
+          </label>
+          <label>
+            Time zone
+            <input
+              type="text"
+              value={settings.timeZone}
+              onChange={(e) => handleChange('timeZone', e.target.value)}
+              placeholder="America/New_York"
+            />
+          </label>
+          <label>
+            Birthday
+            <input
+              type="date"
+              value={settings.birthday}
+              onChange={(e) => handleChange('birthday', e.target.value)}
+            />
+            <p className="micro-copy">We’ll add a yearly birthday reminder.</p>
+          </label>
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={settings.zodiacEnabled}
+              onChange={(e) => handleChange('zodiacEnabled', e.target.checked)}
+            />
+            Show horoscope card
+          </label>
+          <label>
+            Clock format
+            <select value={settings.clockFormat} onChange={(e) => handleChange('clockFormat', e.target.value)}>
+              <option value="12">12-hour</option>
+              <option value="24">24-hour</option>
+            </select>
+          </label>
+          <div className="settings-actions">
+            <button type="submit">Save settings</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function HoroscopeCard({ zodiacSign }) {
+  if (!zodiacSign) return null;
+  return (
+    <div className="horoscope-card">
+      <div className="horoscope-icon" aria-hidden="true">
+        ✨
+      </div>
+      <div>
+        <p className="eyebrow">Horoscope</p>
+        <h4>{zodiacSign}</h4>
+        <p className="muted">{horoscopeBySign[zodiacSign]}</p>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [currentMonth, setCurrentMonth] = useState(() => new Date());
   const [events, setEvents] = useState([]);
@@ -506,6 +842,92 @@ export default function App() {
     end: formatDateValue(new Date()),
   });
   const [editingEvent, setEditingEvent] = useState(null);
+  const [users, setUsers] = useState(loadUsers);
+  const [currentUserId, setCurrentUserId] = useState(() => localStorage.getItem('planner_session') || null);
+  const [authMode, setAuthMode] = useState('login');
+  const [authError, setAuthError] = useState('');
+  const [showSettings, setShowSettings] = useState(false);
+  const [clockString, setClockString] = useState('');
+
+  const currentUser = users.find((user) => user.id === currentUserId) || null;
+
+  useEffect(() => {
+    localStorage.setItem('planner_users', JSON.stringify(users));
+  }, [users]);
+
+  useEffect(() => {
+    if (currentUser) {
+      setEvents(currentUser.events || []);
+      document.cookie = `planner_session=${currentUser.id}; path=/; max-age=${60 * 60 * 24 * 30}`;
+      localStorage.setItem('planner_session', currentUser.id);
+    } else {
+      setEvents([]);
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    setEvents((prev) => ensureBirthdayEvent(prev, currentUser));
+  }, [currentUser?.birthday]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    setUsers((prev) =>
+      prev.map((user) =>
+        user.id === currentUser.id
+          ? {
+              ...user,
+              events,
+            }
+          : user,
+      ),
+    );
+  }, [events, currentUser]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const theme = currentUser?.theme || 'light';
+    root.setAttribute('data-theme', theme);
+    root.style.setProperty('--accent', currentUser?.accentColor || initialUserSettings.accentColor);
+  }, [currentUser]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!currentUser) {
+        setClockString('');
+        return;
+      }
+      const formatter = new Intl.DateTimeFormat(undefined, {
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: currentUser.clockFormat !== '24',
+        timeZone: currentUser.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+      });
+      setClockString(formatter.format(new Date()));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [currentUser]);
+
+  const ensureBirthdayEvent = (baseEvents, user) => {
+    const withoutBirthday = baseEvents.filter((event) => event.id !== `birthday-${user.id}`);
+    if (!user.birthday) return withoutBirthday;
+    const startDate = user.birthday;
+    const birthdayEvent = {
+      id: `birthday-${user.id}`,
+      title: `${user.displayName || user.username}'s Birthday`,
+      startDate,
+      endDate: startDate,
+      allDay: true,
+      details: '',
+      color: '#f59e0b',
+      repeatUnit: 'years',
+      repeatEvery: 1,
+      repeatUntil: null,
+      order: 0,
+    };
+    return [birthdayEvent, ...withoutBirthday];
+  };
 
   const nextOrderForDate = (date) => {
     const filtered = events.filter((event) => date >= event.startDate && date <= event.endDate);
@@ -513,7 +935,62 @@ export default function App() {
     return Math.max(...filtered.map((e) => e.order ?? 0)) + 1;
   };
 
+  const handleSignup = ({ username, email, password, confirmPassword }) => {
+    if (!username || !email || !password || !confirmPassword) {
+      setAuthError('Please fill all fields.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setAuthError('Passwords do not match.');
+      return;
+    }
+    const exists = users.some((user) => user.username === username || user.email === email);
+    if (exists) {
+      setAuthError('A user with that username or email already exists.');
+      return;
+    }
+    const newUser = {
+      id: crypto.randomUUID(),
+      username,
+      email,
+      password,
+      events: [],
+      ...initialUserSettings,
+      displayName: username,
+    };
+    setUsers((prev) => [...prev, newUser]);
+    setCurrentUserId(newUser.id);
+    setAuthError('');
+  };
+
+  const handleLogin = ({ identifier, password }) => {
+    const match = users.find(
+      (user) => (user.username === identifier || user.email === identifier) && user.password === password,
+    );
+    if (!match) {
+      setAuthError('Invalid credentials.');
+      return;
+    }
+    setCurrentUserId(match.id);
+    setAuthError('');
+  };
+
+  const handleLogout = () => {
+    setCurrentUserId(null);
+    setEditingEvent(null);
+    localStorage.removeItem('planner_session');
+    document.cookie = 'planner_session=; expires=Thu, 01 Jan 1970 00:00:01 GMT; path=/';
+  };
+
+  const handleSaveSettings = (updated) => {
+    if (!currentUser) return;
+    setUsers((prev) => prev.map((user) => (user.id === currentUser.id ? { ...user, ...updated } : user)));
+    setEvents((prev) => ensureBirthdayEvent(prev, { ...currentUser, ...updated }));
+    setShowSettings(false);
+  };
+
   const handleAddEvent = ({ baseEvent, editing }) => {
+    if (!currentUser) return;
     setEvents((existing) => {
       const cleanedExisting = editing
         ? existing.filter((event) => event.id !== baseEvent.id && !event.id.startsWith(`${baseEvent.id}-`))
@@ -571,6 +1048,7 @@ export default function App() {
   };
 
   const handleReorderEvent = (fromIndex, toIndex) => {
+    if (!currentUser) return;
     const date = selectedRange.start;
     setEvents((existing) => {
       const dayEvents = existing
@@ -601,6 +1079,8 @@ export default function App() {
         </div>
         <MonthNavigator currentMonth={currentMonth} onMonthChange={setCurrentMonth} />
       </header>
+      <TopBar user={currentUser} timeString={clockString} onToggleSettings={() => setShowSettings(true)} onLogout={handleLogout} />
+      {currentUser?.zodiacEnabled && <HoroscopeCard zodiacSign={getZodiacSign(currentUser.birthday)} />}
 
       <main className="layout">
         <section className="panel">
@@ -609,6 +1089,7 @@ export default function App() {
             selectedRange={selectedRange}
             editingEvent={editingEvent}
             onResetEditing={handleResetEditing}
+            disabled={!currentUser}
           />
           <SelectedDayDetails
             date={selectedRange.start}
@@ -628,6 +1109,20 @@ export default function App() {
           />
         </section>
       </main>
+
+      {!currentUser && (
+        <AuthModal
+          mode={authMode}
+          onSwitchMode={setAuthMode}
+          onLogin={handleLogin}
+          onSignup={handleSignup}
+          error={authError}
+        />
+      )}
+
+      {showSettings && currentUser && (
+        <SettingsPanel user={currentUser} onSave={handleSaveSettings} onClose={() => setShowSettings(false)} />
+      )}
     </div>
   );
 }
