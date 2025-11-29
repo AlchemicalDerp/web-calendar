@@ -893,11 +893,12 @@ export default function App() {
   useEffect(() => {
     const activeUser = users.find((user) => user.id === currentUserId);
     if (activeUser) {
-      setEvents(activeUser.events || []);
+      const incomingEvents = activeUser.events || [];
+      setEvents((prev) => (prev === incomingEvents ? prev : incomingEvents));
       document.cookie = `planner_session=${activeUser.id}; path=/; max-age=${60 * 60 * 24 * 30}`;
       localStorage.setItem('planner_session', activeUser.id);
     } else {
-      setEvents([]);
+      setEvents((prev) => (prev.length === 0 ? prev : []));
     }
   }, [currentUserId, users]);
 
@@ -918,9 +919,16 @@ export default function App() {
 
   useEffect(() => {
     if (!currentUserId) return;
-    setUsers((prev) =>
-      prev.map((user) => (user.id === currentUserId ? { ...user, events } : user)),
-    );
+    setUsers((prev) => {
+      let changed = false;
+      const updated = prev.map((user) => {
+        if (user.id !== currentUserId) return user;
+        if (user.events === events) return user;
+        changed = true;
+        return { ...user, events };
+      });
+      return changed ? updated : prev;
+    });
   }, [events, currentUserId]);
 
   useEffect(() => {
