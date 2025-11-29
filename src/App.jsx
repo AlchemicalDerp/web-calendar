@@ -874,7 +874,10 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [clockString, setClockString] = useState('');
 
-  const currentUser = users.find((user) => user.id === currentUserId) || null;
+  const currentUser = useMemo(
+    () => users.find((user) => user.id === currentUserId) || null,
+    [users, currentUserId],
+  );
 
   useEffect(() => {
     localStorage.setItem('planner_users', JSON.stringify(users));
@@ -888,14 +891,15 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (currentUser) {
-      setEvents(currentUser.events || []);
-      document.cookie = `planner_session=${currentUser.id}; path=/; max-age=${60 * 60 * 24 * 30}`;
-      localStorage.setItem('planner_session', currentUser.id);
+    const activeUser = users.find((user) => user.id === currentUserId);
+    if (activeUser) {
+      setEvents(activeUser.events || []);
+      document.cookie = `planner_session=${activeUser.id}; path=/; max-age=${60 * 60 * 24 * 30}`;
+      localStorage.setItem('planner_session', activeUser.id);
     } else {
       setEvents([]);
     }
-  }, [currentUser]);
+  }, [currentUserId, users]);
 
   useEffect(() => {
     if (!currentUserId) return;
@@ -910,21 +914,14 @@ export default function App() {
   useEffect(() => {
     if (!currentUser) return;
     setEvents((prev) => ensureBirthdayEvent(prev, currentUser));
-  }, [currentUser?.birthday]);
+  }, [currentUser?.birthday, currentUser?.id]);
 
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUserId) return;
     setUsers((prev) =>
-      prev.map((user) =>
-        user.id === currentUser.id
-          ? {
-              ...user,
-              events,
-            }
-          : user,
-      ),
+      prev.map((user) => (user.id === currentUserId ? { ...user, events } : user)),
     );
-  }, [events, currentUser]);
+  }, [events, currentUserId]);
 
   useEffect(() => {
     const root = document.documentElement;
